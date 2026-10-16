@@ -1,0 +1,6 @@
+# Datasets stay out of Git (raw, processed, field_test)
+data/
+__pycache__/
+.venv/
+*.tflite
+.ipynb_checkpoints/

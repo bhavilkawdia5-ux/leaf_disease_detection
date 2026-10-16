@@ -1,0 +1,8 @@
+# LeafSight training project (see docs/SYSTEM_DESIGN.md)
+tensorflow>=2.16
+numpy
+pillow
+opencv-python
+pyyaml
+scikit-learn
+matplotlib
