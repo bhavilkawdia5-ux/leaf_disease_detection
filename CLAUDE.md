@@ -5,4 +5,4 @@
 - Follow the Coding rules section.
 - The app is native Android (Kotlin + Jetpack Compose), not Flutter. Use the
   Kotlin equivalents listed in the Tech stack section.
-- Current phase: Phase 0
+- Current phase: Phase 1
