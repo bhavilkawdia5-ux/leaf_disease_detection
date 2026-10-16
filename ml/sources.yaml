@@ -29,8 +29,34 @@ sources:
       Grape___Black_rot: skip                            # rare in Maharashtra
       Grape___Esca_(Black_Measles): skip                 # rare in Maharashtra
       Grape___Leaf_blight_(Isariopsis_Leaf_Spot): skip   # rare in Maharashtra
+      # Other crops: not in version 1.
+      Apple___Apple_scab: skip
+      Apple___Black_rot: skip
+      Apple___Cedar_apple_rust: skip
+      Apple___healthy: skip
+      Blueberry___healthy: skip
+      Cherry_(including_sour)___Powdery_mildew: skip
+      Cherry_(including_sour)___healthy: skip
+      Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot: skip
+      Corn_(maize)___Common_rust_: skip
+      Corn_(maize)___Northern_Leaf_Blight: skip
+      Corn_(maize)___healthy: skip
+      Orange___Haunglongbing_(Citrus_greening): skip
+      Peach___Bacterial_spot: skip
+      Peach___healthy: skip
+      Pepper,_bell___Bacterial_spot: skip
+      Pepper,_bell___healthy: skip
+      Potato___Early_blight: skip
+      Potato___Late_blight: skip
+      Potato___healthy: skip
+      Raspberry___healthy: skip
+      Soybean___healthy: skip
+      Squash___Powdery_mildew: skip
+      Strawberry___Leaf_scorch: skip
+      Strawberry___healthy: skip
 
   plantdoc:
+    exclude: [PlantDoc_Examples]   # sample collage in the repo root, not a leaf photo
     map:
       Tomato leaf: tomato__healthy
       Tomato Early blight leaf: tomato__early_blight
@@ -43,9 +69,27 @@ sources:
       Tomato two spotted spider mites leaf: skip
       grape leaf: grape__healthy
       grape leaf black rot: skip
+      # Other crops: not in version 1.
+      Apple Scab Leaf: skip
+      Apple leaf: skip
+      Apple rust leaf: skip
+      Bell_pepper leaf: skip
+      Bell_pepper leaf spot: skip
+      Blueberry leaf: skip
+      Cherry leaf: skip
+      Corn Gray leaf spot: skip
+      Corn leaf blight: skip
+      Corn rust leaf: skip
+      Peach leaf: skip
+      Potato leaf early blight: skip
+      Potato leaf late blight: skip
+      Raspberry leaf: skip
+      Soyabean leaf: skip
+      Squash Powdery mildew leaf: skip
+      Strawberry leaf: skip
 
   ngld_grape:
-    # Names from the dataset page; check them after download.
+    # Folder names checked against the v5 download (2026-10-16).
     map:
       Healthy Leaves: grape__healthy
       Downy Mildew: grape__downy_mildew
