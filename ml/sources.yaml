@@ -1,0 +1,68 @@
+# Where each raw dataset's images go (Phase 2, used by ml/src/dataset.py).
+#
+# One entry per folder in data/raw/. Under "map", each key is a folder name in
+# that dataset and each value is a class id from ml/classes.yaml, or "skip" for
+# folders we know about but do not use. Folder names are matched ignoring case,
+# spaces and underscores. An image gets the class of the nearest folder above it
+# that is listed here. dataset.py lists every folder it could not map: add each
+# one here as a class id or "skip".
+#
+# require_dir: only use images below a folder with this name.
+# exclude:     drop images whose path contains any of these words.
+
+sources:
+  plantvillage:
+    require_dir: color        # not the grayscale or segmented copies
+    exclude: [augment]
+    map:
+      Tomato___healthy: tomato__healthy
+      Tomato___Early_blight: tomato__early_blight
+      Tomato___Late_blight: tomato__late_blight
+      Tomato___Tomato_Yellow_Leaf_Curl_Virus: tomato__leaf_curl_virus
+      Tomato___Bacterial_spot: tomato__bacterial_spot
+      Tomato___Septoria_leaf_spot: tomato__septoria_leaf_spot
+      Tomato___Leaf_Mold: skip
+      Tomato___Target_Spot: skip
+      Tomato___Tomato_mosaic_virus: skip
+      Tomato___Spider_mites Two-spotted_spider_mite: skip
+      Grape___healthy: grape__healthy
+      Grape___Black_rot: skip                            # rare in Maharashtra
+      Grape___Esca_(Black_Measles): skip                 # rare in Maharashtra
+      Grape___Leaf_blight_(Isariopsis_Leaf_Spot): skip   # rare in Maharashtra
+
+  plantdoc:
+    map:
+      Tomato leaf: tomato__healthy
+      Tomato Early blight leaf: tomato__early_blight
+      Tomato leaf late blight: tomato__late_blight
+      Tomato leaf yellow virus: tomato__leaf_curl_virus
+      Tomato leaf bacterial spot: tomato__bacterial_spot
+      Tomato Septoria leaf spot: tomato__septoria_leaf_spot
+      Tomato mold leaf: skip
+      Tomato leaf mosaic virus: skip
+      Tomato two spotted spider mites leaf: skip
+      grape leaf: grape__healthy
+      grape leaf black rot: skip
+
+  ngld_grape:
+    # Names from the dataset page; check them after download.
+    map:
+      Healthy Leaves: grape__healthy
+      Downy Mildew: grape__downy_mildew
+      Powdery Mildew: grape__powdery_mildew
+      Bacterial Leaf Spot: grape__bacterial_leaf_spot
+
+  cold_onion:
+    # Hugging Face parquet; keys are the label names stored in the file.
+    exclude: [augment]
+    map:
+      Iris yellow virus: onion__iris_yellow_spot_virus
+      healthy: onion__healthy
+      purple blotch: onion__purple_blotch
+      # Merges two of our classes (Stemphylium blight and anthracnose), so it
+      # cannot be used without relabelling each image.
+      Stemphylium leaf blight and collectrichum leaf blight: skip
+
+  own:
+    # Your own photos: data/raw/own/<class id>/... (any subfolders below that).
+    map: auto
