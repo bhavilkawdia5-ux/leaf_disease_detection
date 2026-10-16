@@ -1,0 +1,118 @@
+# LeafSight class list (Phase 1, see docs/SYSTEM_DESIGN.md)
+#
+# STATUS: DRAFT, written before farmer / KVK conversations.
+# Check every disease with farmers or a KVK officer (docs/farmer_notes.md),
+# then change status to "agreed". Phase 1 is done only when it is agreed.
+#
+# Class id format: <crop>__<condition>. Ids are used as folder names in
+# ml/data and as labels in the model, so do not rename them after Phase 2.
+#
+# public_data: where starter images may exist. "own" means mostly your own
+# field photos. Verify in Phase 2; PlantVillage is lab photos only.
+
+status: draft
+version: 1
+
+crops:
+  tomato:
+    name: Tomato
+    classes:
+      - id: tomato__healthy
+        name: Healthy
+        public_data: [PlantVillage, PlantDoc]
+      - id: tomato__early_blight
+        name: Early blight
+        cause: fungus (Alternaria solani)
+        public_data: [PlantVillage, PlantDoc]
+      - id: tomato__late_blight
+        name: Late blight
+        cause: oomycete (Phytophthora infestans)
+        public_data: [PlantVillage, PlantDoc]
+      - id: tomato__leaf_curl_virus
+        name: Leaf curl virus
+        cause: virus (ToLCV / TYLCV), spread by whitefly
+        public_data: [PlantVillage, PlantDoc]
+      - id: tomato__bacterial_spot
+        name: Bacterial spot
+        cause: bacteria (Xanthomonas spp.)
+        public_data: [PlantVillage, PlantDoc]
+      - id: tomato__septoria_leaf_spot
+        name: Septoria leaf spot
+        cause: fungus (Septoria lycopersici)
+        public_data: [PlantVillage, PlantDoc]
+        note: ask farmers if this is common locally; swap for leaf miner or leaf mold if not
+
+  onion:
+    name: Onion
+    classes:
+      - id: onion__healthy
+        name: Healthy
+        public_data: [Kaggle, own]
+      - id: onion__purple_blotch
+        name: Purple blotch
+        cause: fungus (Alternaria porri)
+        public_data: [Kaggle, own]
+      - id: onion__stemphylium_blight
+        name: Stemphylium blight
+        cause: fungus (Stemphylium vesicarium)
+        public_data: [own]
+      - id: onion__downy_mildew
+        name: Downy mildew
+        cause: oomycete (Peronospora destructor)
+        public_data: [own]
+      - id: onion__anthracnose_twister
+        name: Anthracnose (twister)
+        cause: fungus (Colletotrichum gloeosporioides), mainly kharif season
+        public_data: [own]
+      - id: onion__thrips_damage
+        name: Thrips damage
+        cause: insect pest (Thrips tabaci); looks like disease, so included
+        public_data: [Kaggle, own]
+
+  grape:
+    name: Grapes
+    classes:
+      - id: grape__healthy
+        name: Healthy
+        public_data: [PlantVillage, own]
+      - id: grape__downy_mildew
+        name: Downy mildew
+        cause: oomycete (Plasmopara viticola)
+        public_data: [Kaggle, own]
+      - id: grape__powdery_mildew
+        name: Powdery mildew
+        cause: fungus (Erysiphe necator)
+        public_data: [Kaggle, own]
+      - id: grape__anthracnose
+        name: Anthracnose
+        cause: fungus (Elsinoe ampelina)
+        public_data: [own]
+      - id: grape__rust
+        name: Rust
+        cause: fungus (Phakopsora euvitis)
+        public_data: [own]
+      - id: grape__bacterial_leaf_spot
+        name: Bacterial leaf spot
+        cause: bacteria (Xanthomonas campestris pv. viticola)
+        public_data: [own]
+    note: >
+      PlantVillage grape diseases (black rot, esca, Isariopsis leaf blight) are
+      rare in Maharashtra, so they are left out. Grapes need the most own photos.
+      Alternative third crop: pomegranate (bacterial blight, anthracnose,
+      Cercospora leaf spot, Alternaria spot) if farmers prefer it.
+
+# Shared confuser classes: things that look like disease but are not.
+# They teach the model to say "this is not a disease" instead of guessing.
+confusers:
+  - id: healthy_in_shadow
+    name: Healthy leaf in shadow
+    note: any crop; shoot healthy leaves in half-shadow and low light
+  - id: nutrient_deficiency
+    name: Nutrient deficiency
+    note: yellowing or purpling from missing nutrients, not a pathogen
+  - id: dust_or_water
+    name: Dust or water drops
+    note: dust, spray residue or water drops on a healthy leaf
+  - id: not_a_leaf
+    name: Not a leaf
+    note: soil, hands, stems, fruit, sky, random objects
