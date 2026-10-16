@@ -55,6 +55,14 @@ maps, AI explanation layer, iOS release.
 - Which 4 to 6 diseases per crop?
 - Final app name (LeafSight is a placeholder)
 
+**Decided in Phase 1 (2026-10-16):**
+
+- App name: **KrishiCare**
+- Crops: tomato, onion, grapes. Diseases: see `ml/classes.yaml`.
+- The class list is **provisional**: it was checked against ICAR and NHB
+  sources (`docs/farmer_notes.md`) because farmers could not be reached. Confirm
+  it with farmers or a KVK officer during Phase 2 field visits.
+
 ## Architecture overview
 
 Version 1 runs fully on the phone; cloud and training feed it later.

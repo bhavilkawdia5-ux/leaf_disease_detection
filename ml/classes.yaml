@@ -1,8 +1,9 @@
-# LeafSight class list (Phase 1, see docs/SYSTEM_DESIGN.md)
+# KrishiCare class list (Phase 1, see docs/SYSTEM_DESIGN.md)
 #
-# STATUS: DRAFT, written before farmer / KVK conversations.
-# Check every disease with farmers or a KVK officer (docs/farmer_notes.md),
-# then change status to "agreed". Phase 1 is done only when it is agreed.
+# STATUS: PROVISIONAL. Checked against published ICAR / NHB sources (desk
+# review in docs/farmer_notes.md), not yet with farmers or a KVK officer.
+# Confirm with farmers during Phase 2 field visits, before collecting many own
+# photos, then change status to "agreed".
 #
 # Class id format: <crop>__<condition>. Ids are used as folder names in
 # ml/data and as labels in the model, so do not rename them after Phase 2.
@@ -10,7 +11,7 @@
 # public_data: where starter images may exist. "own" means mostly your own
 # field photos. Verify in Phase 2; PlantVillage is lab photos only.
 
-status: draft
+status: provisional
 version: 1
 
 crops:
@@ -40,7 +41,7 @@ crops:
         name: Septoria leaf spot
         cause: fungus (Septoria lycopersici)
         public_data: [PlantVillage, PlantDoc]
-        note: ask farmers if this is common locally; swap for leaf miner or leaf mold if not
+        note: weakest local evidence of the tomato classes; ask farmers if this is common locally, swap for leaf miner or leaf mold if not
 
   onion:
     name: Onion
@@ -56,10 +57,11 @@ crops:
         name: Stemphylium blight
         cause: fungus (Stemphylium vesicarium)
         public_data: [own]
-      - id: onion__downy_mildew
-        name: Downy mildew
-        cause: oomycete (Peronospora destructor)
-        public_data: [own]
+      - id: onion__iris_yellow_spot_virus
+        name: Iris yellow spot virus
+        cause: virus (IYSV, tospovirus), spread by onion thrips
+        public_data: [COLD, own]
+        note: first recorded in India from Jalna and Nashik onion fields; replaces downy mildew (desk review)
       - id: onion__anthracnose_twister
         name: Anthracnose (twister)
         cause: fungus (Colletotrichum gloeosporioides), mainly kharif season
@@ -87,15 +89,14 @@ crops:
         name: Anthracnose
         cause: fungus (Elsinoe ampelina)
         public_data: [own]
-      - id: grape__rust
-        name: Rust
-        cause: fungus (Phakopsora euvitis)
-        public_data: [own]
       - id: grape__bacterial_leaf_spot
         name: Bacterial leaf spot
         cause: bacteria (Xanthomonas campestris pv. viticola)
-        public_data: [own]
+        public_data: [NGLD, own]
     note: >
+      Rust (Phakopsora euvitis) was dropped in the desk review: the only Indian
+      report is from Karnataka on Vitis labrusca, and it would need own photos
+      only. Add it back if Nashik / Sangli farmers say it is common.
       PlantVillage grape diseases (black rot, esca, Isariopsis leaf blight) are
       rare in Maharashtra, so they are left out. Grapes need the most own photos.
       Alternative third crop: pomegranate (bacterial blight, anthracnose,
