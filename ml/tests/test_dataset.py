@@ -235,6 +235,24 @@ class DatasetTest(unittest.TestCase):
         self.assertIn("Unmapped folder pv/'Tomato___Target_Spot'", text)
         self.assertIn("Under 300 images", text)
 
+    def test_field_test_counted_by_lighting(self):
+        write(self.data / "field_test/tomato__healthy/shadow/a.png")
+        write(self.data / "field_test/tomato__healthy/good/b.png")
+        write(self.data / "field_test/tomato__healthy/c.png")
+        write(self.data / "field_test/tomato__healthy/Shade/d.png")
+        result = self.run_build()
+
+        self.assertEqual(result.field_test["tomato__healthy"], 4)
+        self.assertEqual(dict(result.field_lighting),
+                         {"shadow": 1, "good": 1, "untagged": 1, "Shade": 1})
+        out = io.StringIO()
+        with redirect_stdout(out):
+            dataset.print_report(result)
+        text = out.getvalue()
+        self.assertIn("Field test by lighting: good 1, shadow 1, Shade 1, untagged 1", text)
+        self.assertIn("No field test photos in: harsh_sun, low_light", text)
+        self.assertIn("found: Shade, untagged", text)
+
 
 class RealConfigTest(unittest.TestCase):
     def test_repo_sources_yaml_matches_classes_yaml(self):

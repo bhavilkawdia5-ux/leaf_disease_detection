@@ -107,6 +107,18 @@ sources:
       # cannot be used without relabelling each image.
       Stemphylium leaf blight and collectrichum leaf blight: skip
 
+  mendeley_tomato:
+    # Tomato Leaf Disease Classification v2 (Mendeley jttrv2w27r): phone photos
+    # outdoors in Bangladesh. Folder names as downloaded, typo included.
+    map:
+      Healthy: tomato__healthy
+      Early Blight: tomato__early_blight
+      Late Blight: tomato__late_blight
+      Yellow Leaf Curl Virus: tomato__leaf_curl_virus
+      Bacteiral Spot: tomato__bacterial_spot
+      Magnesium Deficiency: nutrient_deficiency
+      Leaf Miner Flies: skip                    # pest damage, not in classes.yaml
+
   own:
     # Your own photos: data/raw/own/<class id>/... (any subfolders below that).
     map: auto

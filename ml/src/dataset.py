@@ -3,8 +3,9 @@
 Phase 2, see docs/SYSTEM_DESIGN.md.
 
     data/raw/<source>/...                 downloads and own photos (never changed)
-    data/field_test/<class id>/...        held-out field photos (never changed,
-                                          never trained on)
+    data/field_test/<class id>/<lighting>/...  held-out field photos (never
+                                          changed, never trained on); lighting is
+                                          good, shadow, harsh_sun or low_light
     data/processed/{train,val}/<class id>/  rebuilt by this script
 
 Each raw image gets its class from ml/sources.yaml. Folders, .zip files and
@@ -42,6 +43,8 @@ VAL_PERCENT = 15        # SYSTEM_DESIGN Phase 2: split train/val 85/15
 MIN_PER_CLASS = 300     # SYSTEM_DESIGN Phase 2: aim for 300+ images per class
 MIN_FIELD_TEST = 50     # SYSTEM_DESIGN Phase 2: field test of 50+ per class
 MAX_IMBALANCE = 3.0     # SYSTEM_DESIGN Phase 2: counts balanced within roughly 3x
+LIGHTING = ("good", "shadow", "harsh_sun", "low_light")  # SYSTEM_DESIGN Phase 3 tags
+UNTAGGED = "untagged"
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 FORMAT_EXTS = {"JPEG": ".jpg", "PNG": ".png", "BMP": ".bmp", "WEBP": ".webp"}
@@ -66,6 +69,7 @@ class Result:
     rows: list = field(default_factory=list)            # manifest rows
     field_test: Counter = field(default_factory=Counter)
     field_test_unknown: Counter = field(default_factory=Counter)
+    field_lighting: Counter = field(default_factory=Counter)  # lighting folder -> images
     unmapped: Counter = field(default_factory=Counter)  # (source, folder) -> images
     missing_sources: list = field(default_factory=list)
     unknown_sources: list = field(default_factory=list)
@@ -198,6 +202,7 @@ def scan_field_test(field_dir: Path, class_ids: list, result: Result) -> set:
         class_id = parts[0] if len(parts) > 1 else "(top level)"
         if class_id in class_ids:
             result.field_test[class_id] += 1
+            result.field_lighting[parts[1] if len(parts) > 2 else UNTAGGED] += 1
         else:
             result.field_test_unknown[class_id] += 1
     return hashes
@@ -326,6 +331,17 @@ def print_report(result: Result) -> None:
              if result.field_test[cid] < MIN_FIELD_TEST]
     if short:
         notes.append(f"Field test under {MIN_FIELD_TEST} photos: {len(short)} classes")
+    if result.field_lighting:
+        tags = [t for t in LIGHTING if result.field_lighting[t]]
+        others = sorted(t for t in result.field_lighting if t not in LIGHTING)
+        notes.append("Field test by lighting: " + ", ".join(
+            f"{t} {result.field_lighting[t]}" for t in tags + others))
+        missing = [t for t in LIGHTING if not result.field_lighting[t]]
+        if missing:
+            notes.append(f"No field test photos in: {', '.join(missing)}")
+        if others:
+            notes.append(f"Field test photos need a lighting folder ({', '.join(LIGHTING)}),"
+                         f" found: {', '.join(others)}")
     for (source, folder), n in sorted(result.unmapped.items()):
         notes.append(f"Unmapped folder {source}/'{folder}' ({n} images):"
                      f" add it to ml/sources.yaml as a class id or skip")
