@@ -4,5 +4,6 @@ numpy
 pillow
 opencv-python
 pyyaml
+pyarrow          # reads Hugging Face .parquet datasets (COLD onion) in dataset.py
 scikit-learn
 matplotlib
