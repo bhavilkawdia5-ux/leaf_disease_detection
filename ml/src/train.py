@@ -1,23 +1,26 @@
-"""Fine-tune MobileNetV3-Large on data/processed (the Phase 3 baseline model).
+"""Fine-tune MobileNetV3-Large on data/processed (Phase 3 baseline, Phase 4 robust models).
 
-Phase 3, see docs/SYSTEM_DESIGN.md.
+Phases 3 and 4, see docs/SYSTEM_DESIGN.md.
 
     data/processed/manifest.csv     which image is in train / val (from dataset.py)
-    models/baseline.keras           best model by val accuracy
-    models/labels.txt               class ids, one per line, in model output order
-    models/train_info.json          settings and accuracy per epoch, read by evaluate.py
+    <out>/model.keras               best model by val accuracy
+    <out>/labels.txt                class ids, one per line, in model output order
+    <out>/train_info.json           settings and accuracy per epoch, read by evaluate.py
 
 Two stages, as in the Phase 0 practice run: train only the new last layer with
 the pretrained model frozen, then unfreeze its top layers with a small learning
 rate. Only the val split picks the best epoch; the test split is never read here.
 
-No lighting augmentation on purpose: this baseline has to show how much shadow
-and harsh sun hurt, so Phase 4 can show the fix. Rare classes get a bigger class
-weight, because train counts are 23x apart (docs/datasets.md).
+Without --augment there is no lighting augmentation: the Phase 3 baseline had to
+show how much shadow and harsh sun hurt. --augment (Phase 4) adds the random
+lighting effects in augment.py, and --preprocess runs a lighting fix from
+preprocess.py on every photo first. Rare classes get a bigger class weight,
+because train counts are 23x apart (docs/datasets.md).
 
 Usage:
     python ml/src/train.py                          # data in ml/data
     python ml/src/train.py --data /content/data     # in Colab
+    python ml/src/train.py --augment --preprocess clahe --out ml/models/aug_clahe
     python ml/src/train.py --limit 20 --epochs-head 1 --epochs-fine 1   # quick check
 """
 import argparse
@@ -29,20 +32,25 @@ from collections import Counter
 from datetime import date
 from pathlib import Path
 
+import numpy as np
+
 ML_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ML_DIR / "src"))
+import augment  # noqa: E402
 import dataset  # noqa: E402
+import preprocess  # noqa: E402
 
 IMG = 224               # SYSTEM_DESIGN Phase 3: 224x224
 BATCH = 32
 SEED = 42
 EPOCHS_HEAD = 5         # frozen pretrained model, new last layer only
-EPOCHS_FINE = 10        # top layers unfrozen; stops early if val stops improving
+EPOCHS_FINE = 20        # top layers unfrozen; stops early if val stops improving.
+                        # The Phase 3 baseline ran 10 and was still improving at the end.
 FINE_TUNE_LAYERS = 60   # last layers of MobileNetV3-Large (188 layers) to unfreeze
 LR_HEAD = 1e-3          # Phase 0 practice run
 LR_FINE = 5e-5          # small, so fine-tuning nudges the pretrained weights
 DROPOUT = 0.2           # Phase 0 practice run
-PATIENCE = 3            # epochs without a better val accuracy before stopping
+PATIENCE = 4            # epochs without a better val accuracy before stopping (baseline: 3)
 SHUFFLE = 2048
 
 
@@ -85,17 +93,41 @@ def load_image(path):
     return tf.clip_by_value(image, 0.0, 255.0)
 
 
-def make_dataset(data_dir: Path, rows: list, class_ids: list, training: bool):
+def augment_and_fix(image: np.ndarray, seed: int, mode: str) -> np.ndarray:
+    """Random lighting effects, then the lighting fix: what one training photo
+    looks like in one epoch."""
+    out = augment.random_augment(image, np.random.default_rng(int(seed)))
+    return preprocess.apply(out, mode)
+
+
+def make_dataset(data_dir: Path, rows: list, class_ids: list, training: bool,
+                 use_augment: bool = False, mode: str = "none"):
     import tensorflow as tf
     paths = [str(data_dir / r["file"]) for r in rows]
     labels = [class_ids.index(r["class_id"]) for r in rows]
     ds = tf.data.Dataset.from_tensor_slices((paths, labels))
+    random_each_epoch = training and use_augment
+
+    def load(path):
+        image = load_image(path)
+        if mode != "none" and not random_each_epoch:
+            image = tf.numpy_function(lambda x: preprocess.apply(x, mode), [image], tf.float32)
+            image.set_shape((IMG, IMG, 3))
+        return tf.cast(tf.round(image), tf.uint8)
+
     # Keep the resized images in memory (about 150 KB each) so each image file
     # is decoded only once.
-    ds = ds.map(lambda p, y: (tf.cast(tf.round(load_image(p)), tf.uint8), y),
-                num_parallel_calls=tf.data.AUTOTUNE).cache()
+    ds = ds.map(lambda p, y: (load(p), y), num_parallel_calls=tf.data.AUTOTUNE).cache()
     if training:
         ds = ds.shuffle(SHUFFLE, seed=SEED, reshuffle_each_iteration=True)
+    if random_each_epoch:
+        def random_lighting(x):
+            seed = tf.random.uniform([], 0, 2 ** 31 - 1, dtype=tf.int64)
+            out = tf.numpy_function(lambda img, s: augment_and_fix(img, s, mode),
+                                    [x, seed], tf.float32)
+            out.set_shape((IMG, IMG, 3))
+            return out
+        ds = ds.map(lambda x, y: (random_lighting(x), y), num_parallel_calls=tf.data.AUTOTUNE)
     ds = ds.batch(BATCH).map(lambda x, y: (tf.cast(x, tf.float32), y))
     return ds.prefetch(tf.data.AUTOTUNE)
 
@@ -122,7 +154,8 @@ def build_model(num_classes: int):
 
 
 def train(data_dir: Path, out_dir: Path, classes_path: Path, epochs_head: int,
-          epochs_fine: int, limit: int = 0) -> dict:
+          epochs_fine: int, limit: int = 0, use_augment: bool = False,
+          mode: str = "none") -> dict:
     import keras
     keras.utils.set_random_seed(SEED)
 
@@ -134,14 +167,15 @@ def train(data_dir: Path, out_dir: Path, classes_path: Path, epochs_head: int,
         sys.exit("No train or val images in the manifest: run dataset.py first")
     labels = [class_ids.index(r["class_id"]) for r in train_rows]
     weights = class_weights(labels, len(class_ids))
-    print(f"{len(train_rows)} train and {len(val_rows)} val images, {len(class_ids)} classes")
+    print(f"{len(train_rows)} train and {len(val_rows)} val images, {len(class_ids)} classes,"
+          f" lighting augmentation {'on' if use_augment else 'off'}, preprocess {mode}")
 
-    train_ds = make_dataset(data_dir, train_rows, class_ids, training=True)
-    val_ds = make_dataset(data_dir, val_rows, class_ids, training=False)
+    train_ds = make_dataset(data_dir, train_rows, class_ids, True, use_augment, mode)
+    val_ds = make_dataset(data_dir, val_rows, class_ids, False, use_augment, mode)
     model, base = build_model(len(class_ids))
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    model_path = out_dir / "baseline.keras"
+    model_path = out_dir / "model.keras"
     (out_dir / "labels.txt").write_text("\n".join(class_ids) + "\n", encoding="utf-8")
     best = keras.callbacks.ModelCheckpoint(
         model_path, monitor="val_accuracy", save_best_only=True, verbose=1)
@@ -174,6 +208,8 @@ def train(data_dir: Path, out_dir: Path, classes_path: Path, epochs_head: int,
         "date": date.today().isoformat(),
         "model": "MobileNetV3Large (ImageNet), include_preprocessing",
         "image_size": IMG,
+        "augment": use_augment,
+        "preprocess": mode,
         "classes": class_ids,
         "train_images": len(train_rows),
         "val_images": len(val_rows),
@@ -207,8 +243,13 @@ def main(argv=None) -> int:
     parser.add_argument("--epochs-fine", type=int, default=EPOCHS_FINE)
     parser.add_argument("--limit", type=int, default=0,
                         help="use at most this many images per class (quick check)")
+    parser.add_argument("--augment", action="store_true",
+                        help="random lighting effects on training photos (augment.py)")
+    parser.add_argument("--preprocess", choices=preprocess.MODES, default="none",
+                        help="lighting fix run on every photo first (preprocess.py)")
     args = parser.parse_args(argv)
-    train(args.data, args.out, args.classes, args.epochs_head, args.epochs_fine, args.limit)
+    train(args.data, args.out, args.classes, args.epochs_head, args.epochs_fine, args.limit,
+          args.augment, args.preprocess)
     return 0
 
 

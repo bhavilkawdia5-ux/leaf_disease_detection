@@ -129,3 +129,16 @@ Open `ml/notebooks/phase3_baseline.ipynb` with a T4 GPU runtime. It downloads an
 merges the data as in Phase 2, runs a quick check, trains with `ml/src/train.py`,
 tests with `ml/src/evaluate.py` and writes `ml/reports/baseline.md`, then lets you
 download the report and the model (`ml/models/` is git-ignored).
+
+## Phase 4 in Colab
+
+Open `ml/notebooks/phase4_robust.ipynb` with a T4 GPU runtime. It trains three
+models with random lighting augmentation (`ml/src/augment.py`): no lighting fix,
+grey-world and CLAHE (`ml/src/preprocess.py`). Each is tested against
+`ml/reports/baseline.md` into `ml/reports/phase4_<name>.md`, with its "not sure"
+threshold chosen from the val split. `phase4_comparison.md` picks the best by val
+accuracy averaged over the four lighting conditions (never by test), and
+`export_tflite.py` writes its float16 `.tflite` and `reports/export.md`. The
+synthetic test lighting is similar in kind to the augmentation, so its gains are
+an upper bound until real shadowed photos are tested. Cluttered-background
+augmentation is not done yet (needs leaf cut-outs).

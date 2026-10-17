@@ -116,6 +116,91 @@ class MetricsTest(unittest.TestCase):
             self.assertEqual([(r["class_id"], r["lighting"]) for r in rows], [("a", "shadow")])
 
 
+class NotSureTest(unittest.TestCase):
+    def setUp(self):
+        # 20 checks: 16 right with high confidence, 4 wrong at 0.4 / 0.5 / 0.6 / 0.8
+        self.val = [result("a", "a", conf=0.95) for _ in range(16)]
+        self.val += [result("a", "b", conf=c) for c in (0.4, 0.5, 0.6, 0.8)]
+
+    def test_rates_at_a_threshold(self):
+        self.assertEqual(evaluate.not_sure_rate(self.val, 0.55), 10.0)
+        self.assertEqual(evaluate.confident_wrong(self.val, 0.55), 10.0)
+        self.assertAlmostEqual(evaluate.answered_accuracy(self.val, 0.55), 100 * 16 / 18)
+
+    def test_choose_threshold_is_lowest_meeting_target(self):
+        val = self.val + [result("a", "a", conf=0.95) for _ in range(5)]   # 25 checks
+        # 1 of 25 = 4%: needs only the 0.8 answer left above, so threshold 0.61
+        threshold, met = evaluate.choose_threshold(val)
+        self.assertTrue(met)
+        self.assertEqual(threshold, 0.61)
+
+    def test_choose_threshold_reports_a_miss(self):
+        val = [result("a", "b", conf=0.999) for _ in range(5)] + [result("a", "a")]
+        self.assertEqual(evaluate.choose_threshold(val), (evaluate.THRESHOLDS[-1], False))
+
+    def test_mean_lighting_accuracy_weights_each_lighting_equally(self):
+        results = [result("a", "a"), result("a", "a"),
+                   result("a", "b", lighting="shadow")]
+        self.assertEqual(evaluate.mean_lighting_accuracy(results), 50.0)
+
+
+class BaselineAndCompareTest(unittest.TestCase):
+    def test_read_baseline_from_the_phase3_report(self):
+        path = ML_DIR / "reports" / "baseline.md"
+        if not path.is_file():
+            self.skipTest("reports/baseline.md not present")
+        numbers = evaluate.read_baseline(path)
+        self.assertEqual(set(numbers), set(evaluate.LIGHTING))
+        self.assertTrue(all(0 <= v <= 100 for v in numbers.values()))
+
+    def test_read_baseline_ignores_other_tables_and_missing_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "r.md"
+            path.write_text("| good | 50.0% | 3 |\n"
+                            "| good | 80.0% | 90.0% | 85.0% | 70.0% | — | 7.0% |\n"
+                            "| shadow | 60.0% | 70.0% | 65.0% | 50.0% | -20.0 | 9.0% |\n",
+                            encoding="utf-8")
+            self.assertEqual(evaluate.read_baseline(path), {"good": 80.0, "shadow": 60.0})
+            self.assertEqual(evaluate.read_baseline(Path(tmp) / "missing.md"), {})
+
+    def test_report_with_threshold_and_baseline(self):
+        test = [result(c, c, lighting=lt, kind=k)
+                for c in ("a", "b") for lt in evaluate.LIGHTING for k in ("field", "lab")]
+        val = [result("a", "a", lighting=lt) for lt in evaluate.LIGHTING]
+        text = evaluate.render_report({"model": "m", "augment": True, "preprocess": "clahe"},
+                                      ["a", "b"], val, test, [], "T", 0.6, True,
+                                      {lt: 50.0 for lt in evaluate.LIGHTING})
+        self.assertIn("Random lighting augmentation", text)
+        self.assertIn("`clahe`", text)
+        self.assertIn("## Compared with the Phase 3 baseline", text)
+        self.assertIn("| shadow | 50.0% | 100.0% | +50.0 |", text)
+        self.assertIn("**Threshold: 0.60.**", text)
+        self.assertIn("averaged over the 4 lighting conditions: 100.0%", text)
+
+    def test_report_written_by_evaluate_is_readable_as_a_baseline(self):
+        test = [result("a", "a", lighting=lt) for lt in evaluate.LIGHTING]
+        test.append(result("a", "b", lighting="shadow"))
+        text = evaluate.render_report({}, ["a", "b"], [result("a", "a")], test, [], "T", 0.5)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "r.md"
+            path.write_text(text, encoding="utf-8")
+            self.assertEqual(evaluate.read_baseline(path),
+                             {"good": 100.0, "shadow": 50.0, "harsh_sun": 100.0,
+                              "low_light": 100.0})
+
+    def test_comparison_picks_best_by_val_not_test(self):
+        def run(name, val_mean, test_good):
+            return {"name": name, "augment": True, "preprocess": "none",
+                    "val_mean_lighting": val_mean, "threshold": 0.6, "threshold_met": True,
+                    "test_field": {lt: test_good for lt in evaluate.LIGHTING}}
+        runs = [run("x", 80.0, 99.0), run("y", 85.0, 70.0)]
+        text, best = evaluate.render_comparison(runs, {lt: 60.0 for lt in evaluate.LIGHTING})
+        self.assertEqual(best, "y")
+        self.assertIn("| y **(best)** |", text)
+        self.assertIn("| Phase 3 baseline |", text)
+        self.assertIn("| shadow | 60.0% | 70.0% | +10.0 |", text)
+
+
 class TrainHelpersTest(unittest.TestCase):
     def test_class_weights_balance_the_loss(self):
         weights = train.class_weights([0, 0, 0, 1], 3)
