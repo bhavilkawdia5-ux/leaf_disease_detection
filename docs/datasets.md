@@ -88,6 +88,11 @@ data only:
 
 `data/field_test/` still works if real field photos become available later.
 
+**Running it on the Drive data:** open `ml/notebooks/phase2_dataset.ipynb` in
+Colab. It runs `dataset.py --preview` on `MyDrive/leafsight/data/raw/`, shows the
+sample sheets, and saves `processed.zip` and `phase2_counts.txt` next to `raw/`
+for Phase 3.
+
 ## Field test layout
 
 Put each held-out photo in `data/field_test/<class id>/<lighting>/`, where
