@@ -89,9 +89,11 @@ data only:
 `data/field_test/` still works if real field photos become available later.
 
 **Running it on the Drive data:** open `ml/notebooks/phase2_dataset.ipynb` in
-Colab. It runs `dataset.py --preview` on `MyDrive/leafsight/data/raw/`, shows the
-sample sheets, and saves `processed.zip` and `phase2_counts.txt` next to `raw/`
-for Phase 3.
+Colab. The first time, it downloads the six public sets with `ml/src/download.py`
+and saves one zip per set in `MyDrive/leafsight/data/raw/<folder>/` (about 30
+minutes; Mendeley is slow). Then it runs `dataset.py --preview`, shows the sample
+sheets, and saves `processed.zip` and `phase2_counts.txt` next to `raw/` for
+Phase 3. AgroVision GrapeLeaf needs a login, so `download.py` leaves it out.
 
 ## Field test layout
 
