@@ -63,6 +63,13 @@ maps, AI explanation layer, iOS release.
   sources (`docs/farmer_notes.md`) because farmers could not be reached. Confirm
   it with farmers or a KVK officer during Phase 2 field visits.
 
+**Decided in Phase 2 (2026-10-17):** farmer visits and own photos are not
+possible for now, so the dataset uses public data only. Classes without public
+images are paused (`active: false` in `ml/classes.yaml`); the data is split
+train/val/test 70/15/15 and the test split stands in for the field test set;
+each source is tagged lab or field. Details in `docs/datasets.md`, "Workflow
+without field visits".
+
 ## Architecture overview
 
 Version 1 runs fully on the phone; cloud and training feed it later.

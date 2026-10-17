@@ -14,6 +14,11 @@
 status: provisional
 version: 1
 
+# active: false pauses a class (2026-10-17): no farmer visits or own photos are
+# possible for now, so only classes with public images are trained.
+# dataset.py leaves paused classes out of data/processed. Set active back to
+# true (or delete the line) once a class has images; its id never changes.
+
 crops:
   tomato:
     name: Tomato
@@ -52,9 +57,10 @@ crops:
       - id: onion__purple_blotch
         name: Purple blotch
         cause: fungus (Alternaria porri)
-        public_data: [Kaggle, own]
+        public_data: [COLD, TOM2024]
       - id: onion__stemphylium_blight
         name: Stemphylium blight
+        active: false   # paused 2026-10-17: no public images on its own (COLD merges it with anthracnose)
         cause: fungus (Stemphylium vesicarium)
         public_data: [own]
       - id: onion__iris_yellow_spot_virus
@@ -64,10 +70,12 @@ crops:
         note: first recorded in India from Jalna and Nashik onion fields; replaces downy mildew (desk review)
       - id: onion__anthracnose_twister
         name: Anthracnose (twister)
+        active: false   # paused 2026-10-17: no public images
         cause: fungus (Colletotrichum gloeosporioides), mainly kharif season
         public_data: [own]
       - id: onion__thrips_damage
         name: Thrips damage
+        active: false   # paused 2026-10-17: no public images
         cause: insect pest (Thrips tabaci); looks like disease, so included
         public_data: [Kaggle, own]
 
@@ -87,6 +95,7 @@ crops:
         public_data: [Kaggle, own]
       - id: grape__anthracnose
         name: Anthracnose
+        active: false   # paused 2026-10-17: no open public images
         cause: fungus (Elsinoe ampelina)
         public_data: [own]
       - id: grape__bacterial_leaf_spot
@@ -107,13 +116,16 @@ crops:
 confusers:
   - id: healthy_in_shadow
     name: Healthy leaf in shadow
+    active: false   # paused 2026-10-17: needs own photos
     note: any crop; shoot healthy leaves in half-shadow and low light
   - id: nutrient_deficiency
     name: Nutrient deficiency
     note: yellowing or purpling from missing nutrients, not a pathogen
   - id: dust_or_water
     name: Dust or water drops
+    active: false   # paused 2026-10-17: needs own photos
     note: dust, spray residue or water drops on a healthy leaf
   - id: not_a_leaf
     name: Not a leaf
+    active: false   # paused 2026-10-17: needs a public non-leaf image set
     note: soil, hands, stems, fruit, sky, random objects

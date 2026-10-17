@@ -62,6 +62,32 @@ empty. `nutrient_deficiency` is tomato only so far; add onion and grape photos.
 - **AgroVision GrapeLeaf** (row above): only open source with grape
   anthracnose; needs an IEEE DataPort login.
 
+## Workflow without field visits (decided 2026-10-17)
+
+Farmer visits and own photos are not possible for now, so Phase 2 uses public
+data only:
+
+1. **Paused classes.** Classes with no public images are marked
+   `active: false` in `ml/classes.yaml` and left out: onion Stemphylium blight,
+   onion anthracnose (twister), onion thrips damage, grape anthracnose,
+   healthy_in_shadow, dust_or_water, not_a_leaf. 14 classes stay active.
+2. **Train / val / test = 70 / 15 / 15**, from each image's hash. The test
+   split replaces the field test set: never trained or tuned on.
+3. **Lab or field.** Each source in `ml/sources.yaml` has `kind: lab`
+   (PlantVillage) or `kind: field` (all others). Phase 3 reports test accuracy
+   for each kind; only the field number counts as real-world accuracy.
+4. **Train cap of 1,500 per class**, dropping lab photos first. Val and test
+   are not capped. Any imbalance left over (over 3x) is handled with class
+   weights in training, an accepted exception to the Phase 2 "within 3x" check.
+5. **Label check by eye.** `--preview` writes one sheet of 25 sample photos per
+   class to `data/processed/preview/`. This replaces the expert check until an
+   expert is available.
+6. **Lighting.** Public photos have no lighting tags, so Phase 3 measures the
+   lighting drop with synthetic dark, shadow and harsh-sun versions of the
+   test split, as in the Phase 0 practice run.
+
+`data/field_test/` still works if real field photos become available later.
+
 ## Field test layout
 
 Put each held-out photo in `data/field_test/<class id>/<lighting>/`, where

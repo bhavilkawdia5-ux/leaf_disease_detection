@@ -9,9 +9,13 @@
 #
 # require_dir: only use images below a folder with this name.
 # exclude:     drop images whose path contains any of these words.
+# kind:        lab (plain background, studio light) or field (real-world
+#              photos). Training keeps field photos first when a class is
+#              capped, and Phase 3 reports test accuracy for each kind.
 
 sources:
   plantvillage:
+    kind: lab
     require_dir: color        # not the grayscale or segmented copies
     exclude: [augment]
     map:
@@ -56,6 +60,7 @@ sources:
       Strawberry___healthy: skip
 
   plantdoc:
+    kind: field
     exclude: [PlantDoc_Examples]   # sample collage in the repo root, not a leaf photo
     map:
       Tomato leaf: tomato__healthy
@@ -89,6 +94,7 @@ sources:
       Strawberry leaf: skip
 
   ngld_grape:
+    kind: field
     # Folder names checked against the v5 download (2026-10-16).
     map:
       Healthy Leaves: grape__healthy
@@ -97,6 +103,7 @@ sources:
       Bacterial Leaf Spot: grape__bacterial_leaf_spot
 
   cold_onion:
+    kind: field
     # Hugging Face parquet; keys are the label names stored in the file.
     exclude: [augment]
     map:
@@ -108,6 +115,7 @@ sources:
       Stemphylium leaf blight and collectrichum leaf blight: skip
 
   mendeley_tomato:
+    kind: field
     # Tomato Leaf Disease Classification v2 (Mendeley jttrv2w27r): phone photos
     # outdoors in Bangladesh. Folder names as downloaded, typo included.
     map:
@@ -120,6 +128,7 @@ sources:
       Leaf Miner Flies: skip                    # pest damage, not in classes.yaml
 
   tom2024:
+    kind: field
     # TOM2024 (Mendeley 3d4yg89rtr v1): onion field photos from Burkina Faso,
     # expert-validated crops. Only CATEGORY A/CATA-English/onion_diseases was
     # downloaded, into raw/tom2024/onion_diseases/<folder>/.
@@ -131,5 +140,6 @@ sources:
       Virosis-D: skip
 
   own:
+    kind: field
     # Your own photos: data/raw/own/<class id>/... (any subfolders below that).
     map: auto

@@ -46,6 +46,7 @@ class DatasetTest(unittest.TestCase):
         self.sources.write_text(
             "sources:\n"
             "  pv:\n"
+            "    kind: lab\n"
             "    require_dir: color\n"
             "    exclude: [augment]\n"
             "    map:\n"
@@ -53,6 +54,7 @@ class DatasetTest(unittest.TestCase):
             "      Tomato___Early_blight: tomato__early_blight\n"
             "      Tomato___Leaf_Mold: skip\n"
             "  own:\n"
+            "    kind: field\n"
             "    map: auto\n",
             encoding="utf-8")
 
@@ -156,6 +158,7 @@ class DatasetTest(unittest.TestCase):
         self.sources.write_text(
             "sources:\n"
             "  cold:\n"
+            "    kind: field\n"
             "    map:\n"
             "      Iris yellow virus: onion__iris_yellow_spot_virus\n"
             "      healthy: onion__healthy\n",
@@ -186,7 +189,8 @@ class DatasetTest(unittest.TestCase):
 
     def test_unknown_class_in_sources_is_an_error(self):
         self.sources.write_text(
-            "sources:\n  pv:\n    map:\n      Downy: onion__downy_mildew\n", encoding="utf-8")
+            "sources:\n  pv:\n    kind: lab\n    map:\n      Downy: onion__downy_mildew\n",
+            encoding="utf-8")
         write(self.raw / "pv/Downy/a.png")
 
         result = self.run_build()
@@ -215,10 +219,73 @@ class DatasetTest(unittest.TestCase):
         self.assertEqual(len(second), len(first) - 1)
         self.assertTrue(set(second) <= set(first))
 
-    def test_split_is_about_15_percent(self):
+    def test_split_is_about_70_15_15(self):
         digests = [hashlib.sha1(str(i).encode()).hexdigest() for i in range(10000)]
-        val = sum(dataset.split_for(d) == "val" for d in digests)
-        self.assertAlmostEqual(val / len(digests), 0.15, delta=0.01)
+        splits = [dataset.split_for(d) for d in digests]
+        for split, share in (("train", 0.70), ("val", 0.15), ("test", 0.15)):
+            self.assertAlmostEqual(splits.count(split) / len(digests), share, delta=0.015)
+
+    def test_paused_class_is_left_out(self):
+        write(self.raw / "own/not_a_leaf/a.png")
+        write(self.raw / "own/tomato__healthy/b.png")
+
+        result = self.run_build()
+
+        self.assertEqual([r["class_id"] for r in result.rows], ["tomato__healthy"])
+        self.assertEqual(dict(result.paused), {"not_a_leaf": 1})
+        self.assertIn("not_a_leaf", result.paused_ids)
+        self.assertNotIn("not_a_leaf", result.class_ids)
+
+    def test_missing_kind_is_an_error(self):
+        self.sources.write_text("sources:\n  own:\n    map: auto\n", encoding="utf-8")
+
+        result = self.run_build()
+
+        self.assertEqual(len(result.errors), 1)
+        self.assertIn("kind", result.errors[0])
+
+    def test_train_cap_drops_lab_photos_first(self):
+        for i in range(40):
+            write(self.raw / "pv/color/Tomato___healthy" / f"lab{i}.png")
+            write(self.raw / "own/tomato__healthy" / f"field{i}.png")
+        old_cap = dataset.MAX_TRAIN_PER_CLASS
+        dataset.MAX_TRAIN_PER_CLASS = 30
+        self.addCleanup(setattr, dataset, "MAX_TRAIN_PER_CLASS", old_cap)
+
+        result = self.run_build()
+
+        train = [r for r in result.rows if r["split"] == "train"]
+        self.assertEqual(len(train), 30)
+        field_rows = [r for r in result.rows if r["kind"] == "field"]
+        # Every field photo that hashed into train is kept; only lab photos are cut.
+        self.assertTrue(all(r in train for r in field_rows if r["split"] == "train"))
+        self.assertEqual(result.capped["tomato__healthy"],
+                         sum(dataset.split_for(dataset.sha1(p.read_bytes())) == "train"
+                             for p in self.raw.rglob("*.png")) - 30)
+        on_disk = {p.name for p in (self.data / "processed/train/tomato__healthy").iterdir()}
+        self.assertEqual(on_disk, {Path(r["file"]).name for r in train})
+        # Val and test are never capped.
+        self.assertGreater(sum(r["split"] != "train" for r in result.rows), 10)
+
+    def test_manifest_records_kind(self):
+        write(self.raw / "pv/color/Tomato___healthy/a.png")
+        write(self.raw / "own/tomato__early_blight/b.png")
+        self.run_build()
+
+        with open(self.data / "processed/manifest.csv", encoding="utf-8") as fh:
+            kinds = {r["source"]: r["kind"] for r in csv.DictReader(fh)}
+        self.assertEqual(kinds, {"pv": "lab", "own": "field"})
+
+    def test_preview_sheet_per_class(self):
+        for i in range(3):
+            write(self.raw / "own/tomato__healthy" / f"{i}.png")
+        result = self.run_build()
+
+        out = dataset.write_previews(self.data, result.rows, result.class_ids)
+
+        self.assertEqual([p.name for p in out.iterdir()], ["tomato__healthy.jpg"])
+        with Image.open(out / "tomato__healthy.jpg") as im:
+            self.assertEqual(im.size, (5 * dataset.PREVIEW_TILE, 5 * dataset.PREVIEW_TILE))
 
     def test_report_prints_counts_and_notes(self):
         write(self.raw / "own/tomato__healthy/a.png")

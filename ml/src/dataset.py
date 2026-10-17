@@ -6,18 +6,24 @@ Phase 2, see docs/SYSTEM_DESIGN.md.
     data/field_test/<class id>/<lighting>/...  held-out field photos (never
                                           changed, never trained on); lighting is
                                           good, shadow, harsh_sun or low_light
-    data/processed/{train,val}/<class id>/  rebuilt by this script
+    data/processed/{train,val,test}/<class id>/  rebuilt by this script
+    data/processed/preview/<class id>.jpg  sample sheets (--preview)
 
 Each raw image gets its class from ml/sources.yaml. Folders, .zip files and
 Hugging Face .parquet files are all read in place, so raw data can stay zipped.
 Exact duplicates are dropped, and any raw image that is also in field_test is
-left out. The 85/15 train/val split comes from each image's hash, so an image
-keeps its split when more data is added later.
+left out. Classes marked "active: false" in classes.yaml are left out.
+
+The 70/15/15 train/val/test split comes from each image's hash, so an image
+keeps its split when more data is added later. The test split stands in for the
+field test set while no own field photos exist (decided 2026-10-17): it is never
+trained or tuned on. Train is capped per class, dropping lab photos first.
 
 Usage:
     python ml/src/dataset.py                    # data in ml/data
     python ml/src/dataset.py --data /content/drive/MyDrive/leafsight/data
     python ml/src/dataset.py --dry-run          # count only, write nothing
+    python ml/src/dataset.py --preview          # also write sample sheets
 """
 import argparse
 import csv
@@ -38,8 +44,13 @@ from PIL import Image
 
 ML_DIR = Path(__file__).resolve().parents[1]
 
-SPLITS = ("train", "val")
-VAL_PERCENT = 15        # SYSTEM_DESIGN Phase 2: split train/val 85/15
+SPLITS = ("train", "val", "test")
+VAL_PERCENT = 15        # SYSTEM_DESIGN Phase 2: 15% val
+TEST_PERCENT = 15       # docs/datasets.md, 2026-10-17: test split replaces own field photos
+MAX_TRAIN_PER_CLASS = 1500  # docs/datasets.md, 2026-10-17: cap lab-heavy classes
+KINDS = ("lab", "field")
+PREVIEW_COUNT = 25      # sample photos per class sheet (5 x 5)
+PREVIEW_TILE = 160      # pixels per sample on the sheet
 MIN_PER_CLASS = 300     # SYSTEM_DESIGN Phase 2: aim for 300+ images per class
 MIN_FIELD_TEST = 50     # SYSTEM_DESIGN Phase 2: field test of 50+ per class
 MAX_IMBALANCE = 3.0     # SYSTEM_DESIGN Phase 2: counts balanced within roughly 3x
@@ -66,7 +77,10 @@ class RawImage:
 @dataclass
 class Result:
     class_ids: list
+    paused_ids: list = field(default_factory=list)      # active: false in classes.yaml
     rows: list = field(default_factory=list)            # manifest rows
+    paused: Counter = field(default_factory=Counter)    # paused class -> images left out
+    capped: Counter = field(default_factory=Counter)    # class -> train images over the cap
     field_test: Counter = field(default_factory=Counter)
     field_test_unknown: Counter = field(default_factory=Counter)
     field_lighting: Counter = field(default_factory=Counter)  # lighting folder -> images
@@ -80,10 +94,20 @@ class Result:
     errors: list = field(default_factory=list)
 
 
-def load_class_ids(path: Path) -> list:
+def load_classes(path: Path) -> tuple:
+    """Return (active class ids, paused class ids), in classes.yaml order."""
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    ids = [c["id"] for crop in data["crops"].values() for c in crop["classes"]]
-    return ids + [c["id"] for c in data.get("confusers") or []]
+    classes = [c for crop in data["crops"].values() for c in crop["classes"]]
+    classes += data.get("confusers") or []
+    active = [c["id"] for c in classes if c.get("active", True)]
+    paused = [c["id"] for c in classes if not c.get("active", True)]
+    return active, paused
+
+
+def load_class_ids(path: Path) -> list:
+    """Every class id, active or paused."""
+    active, paused = load_classes(path)
+    return active + paused
 
 
 def load_sources(path: Path, class_ids: list) -> tuple:
@@ -93,6 +117,9 @@ def load_sources(path: Path, class_ids: list) -> tuple:
     sources, errors = {}, []
     for name, cfg in (data.get("sources") or {}).items():
         cfg = cfg or {}
+        if cfg.get("kind") not in KINDS:
+            errors.append(f"{name}: kind must be one of {', '.join(KINDS)},"
+                          f" got {cfg.get('kind')!r}")
         raw_map = cfg.get("map") or {}
         if raw_map == "auto":
             raw_map = {cid: cid for cid in class_ids}
@@ -105,6 +132,7 @@ def load_sources(path: Path, class_ids: list) -> tuple:
                 errors.append(f"{name}: folder '{folder}' is listed twice with different classes")
             mapping[key] = target
         sources[name] = {
+            "kind": cfg.get("kind"),
             "map": mapping,
             "require_dir": norm(cfg["require_dir"]) if cfg.get("require_dir") else None,
             "exclude": [norm(x) for x in cfg.get("exclude") or []],
@@ -128,7 +156,12 @@ def sha1(data: bytes) -> str:
 
 
 def split_for(digest: str) -> str:
-    return "val" if int(digest[:8], 16) % 100 < VAL_PERCENT else "train"
+    bucket = int(digest[:8], 16) % 100
+    if bucket < VAL_PERCENT:
+        return "val"
+    if bucket < VAL_PERCENT + TEST_PERCENT:
+        return "test"
+    return "train"
 
 
 def iter_images(source: str, root: Path):
@@ -208,10 +241,48 @@ def scan_field_test(field_dir: Path, class_ids: list, result: Result) -> set:
     return hashes
 
 
+def cap_train(rows: list, cap: int) -> list:
+    """Rows to drop so no class has more than `cap` train images. Field photos
+    are kept first, then lab photos, each in hash order so the choice is stable."""
+    by_class = defaultdict(list)
+    for row in rows:
+        if row["split"] == "train":
+            by_class[row["class_id"]].append(row)
+    drop = []
+    for class_rows in by_class.values():
+        if len(class_rows) > cap:
+            class_rows.sort(key=lambda r: (r["kind"] != "field", r["sha1"]))
+            drop += class_rows[cap:]
+    return drop
+
+
+def write_previews(data_dir: Path, rows: list, class_ids: list) -> Path:
+    """One 5x5 sheet of sample photos per class, to check labels by eye."""
+    out_dir = data_dir / "processed" / "preview"
+    shutil.rmtree(out_dir, ignore_errors=True)
+    out_dir.mkdir(parents=True)
+    by_class = defaultdict(list)
+    for row in sorted(rows, key=lambda r: r["sha1"]):    # hash order = a fair sample
+        by_class[row["class_id"]].append(row)
+    side = int(PREVIEW_COUNT ** 0.5)
+    for cid in class_ids:
+        picks = by_class[cid][:PREVIEW_COUNT]
+        if not picks:
+            continue
+        sheet = Image.new("RGB", (side * PREVIEW_TILE, side * PREVIEW_TILE), "white")
+        for i, row in enumerate(picks):
+            with Image.open(data_dir / row["file"]) as im:
+                im = im.convert("RGB")
+                im.thumbnail((PREVIEW_TILE, PREVIEW_TILE))
+                sheet.paste(im, ((i % side) * PREVIEW_TILE, (i // side) * PREVIEW_TILE))
+        sheet.save(out_dir / f"{cid}.jpg", quality=85)
+    return out_dir
+
+
 def build(data_dir: Path, classes_path: Path, sources_path: Path, dry_run=False) -> Result:
-    class_ids = load_class_ids(classes_path)
-    sources, errors = load_sources(sources_path, class_ids)
-    result = Result(class_ids, errors=errors)
+    class_ids, paused_ids = load_classes(classes_path)
+    sources, errors = load_sources(sources_path, class_ids + paused_ids)
+    result = Result(class_ids, paused_ids, errors=errors)
     if errors:
         return result
 
@@ -243,6 +314,9 @@ def build(data_dir: Path, classes_path: Path, sources_path: Path, dry_run=False)
                 result.unmapped[(name, folder)] += 1
                 continue
             if class_id == SKIP:
+                continue
+            if class_id in paused_ids:
+                result.paused[class_id] += 1
                 continue
 
             data = img.read()
@@ -277,8 +351,14 @@ def build(data_dir: Path, classes_path: Path, sources_path: Path, dry_run=False)
             kept[digest] = {
                 "split": split, "class_id": class_id,
                 "file": out.relative_to(data_dir).as_posix(),
-                "source": name, "origin": img.origin, "sha1": digest,
+                "source": name, "kind": cfg["kind"], "origin": img.origin, "sha1": digest,
             }
+
+    for row in cap_train(list(kept.values()), MAX_TRAIN_PER_CLASS):
+        del kept[row["sha1"]]
+        result.capped[row["class_id"]] += 1
+        if not dry_run:
+            (data_dir / row["file"]).unlink(missing_ok=True)
 
     result.rows = list(kept.values())
     if not dry_run and result.rows:
@@ -303,17 +383,22 @@ def print_report(result: Result) -> None:
         counts[row["class_id"]][row["split"]] += 1
         by_source[row["class_id"]][row["source"]] += 1
 
+    test_field = Counter(r["class_id"] for r in result.rows
+                         if r["split"] == "test" and r["kind"] == "field")
+
     width = max(len(c) for c in result.class_ids)
-    print(f"{'class':<{width}}  {'train':>6}  {'val':>5}  {'total':>6}  {'field':>5}  sources")
+    print(f"{'class':<{width}}  {'train':>6}  {'val':>5}  {'test':>5}  {'(field)':>7}"
+          f"  {'total':>6}  {'f_test':>6}  sources")
     for cid in result.class_ids:
         c = counts[cid]
         srcs = ", ".join(f"{s} {n}" for s, n in sorted(by_source[cid].items()))
-        print(f"{cid:<{width}}  {c['train']:>6}  {c['val']:>5}  {sum(c.values()):>6}"
-              f"  {result.field_test[cid]:>5}  {srcs}")
-    train = sum(c["train"] for c in counts.values())
-    val = sum(c["val"] for c in counts.values())
-    print(f"{'TOTAL':<{width}}  {train:>6}  {val:>5}  {train + val:>6}"
-          f"  {sum(result.field_test.values()):>5}")
+        print(f"{cid:<{width}}  {c['train']:>6}  {c['val']:>5}  {c['test']:>5}"
+              f"  {test_field[cid]:>7}  {sum(c.values()):>6}  {result.field_test[cid]:>6}  {srcs}")
+    split_totals = {s: sum(c[s] for c in counts.values()) for s in SPLITS}
+    print(f"{'TOTAL':<{width}}  {split_totals['train']:>6}  {split_totals['val']:>5}"
+          f"  {split_totals['test']:>5}  {sum(test_field.values()):>7}"
+          f"  {sum(split_totals.values()):>6}  {sum(result.field_test.values()):>6}")
+    print("(field) = test images that are real-world photos; f_test = data/field_test")
 
     notes = []
     totals = {cid: sum(counts[cid].values()) for cid in result.class_ids}
@@ -323,13 +408,27 @@ def print_report(result: Result) -> None:
     low = [f"{cid} ({n})" for cid, n in totals.items() if 0 < n < MIN_PER_CLASS]
     if low:
         notes.append(f"Under {MIN_PER_CLASS} images: {', '.join(low)}")
-    filled = [n for n in totals.values() if n]
-    if filled and max(filled) > MAX_IMBALANCE * min(filled):
-        notes.append(f"Not balanced within {MAX_IMBALANCE:g}x: largest class {max(filled)},"
-                     f" smallest non-empty class {min(filled)}")
+    trains = {cid: counts[cid]["train"] for cid in result.class_ids if counts[cid]["train"]}
+    if trains:
+        big, small = max(trains, key=trains.get), min(trains, key=trains.get)
+        ratio = trains[big] / trains[small]
+        if ratio > MAX_IMBALANCE:
+            notes.append(f"Train not balanced within {MAX_IMBALANCE:g}x ({ratio:.1f}x):"
+                         f" {big} {trains[big]}, {small} {trains[small]};"
+                         f" use class weights in training")
+    if result.capped:
+        notes.append(f"Capped train at {MAX_TRAIN_PER_CLASS} per class, lab photos first: "
+                     + ", ".join(f"{c} -{n}" for c, n in sorted(result.capped.items())))
+    if result.paused_ids:
+        notes.append(f"Paused classes (active: false, left out): {', '.join(result.paused_ids)}")
+    if result.paused:
+        notes.append("Left out images of paused classes: "
+                     + ", ".join(f"{c} {n}" for c, n in sorted(result.paused.items())))
     short = [f"{cid} ({result.field_test[cid]})" for cid in result.class_ids
              if result.field_test[cid] < MIN_FIELD_TEST]
-    if short:
+    if not result.field_test:
+        notes.append("data/field_test is empty: the test split stands in for it")
+    elif short:
         notes.append(f"Field test under {MIN_FIELD_TEST} photos: {len(short)} classes")
     if result.field_lighting:
         tags = [t for t in LIGHTING if result.field_lighting[t]]
@@ -346,7 +445,7 @@ def print_report(result: Result) -> None:
         notes.append(f"Unmapped folder {source}/'{folder}' ({n} images):"
                      f" add it to ml/sources.yaml as a class id or skip")
     for name, n in sorted(result.field_test_unknown.items()):
-        notes.append(f"field_test/{name} is not a class id ({n} images, not counted)")
+        notes.append(f"field_test/{name} is not an active class id ({n} images, not counted)")
     if result.unknown_sources:
         notes.append(f"Folders in data/raw not in ml/sources.yaml (ignored):"
                      f" {', '.join(result.unknown_sources)}")
@@ -375,12 +474,17 @@ def main(argv=None) -> int:
     parser.add_argument("--sources", type=Path, default=ML_DIR / "sources.yaml")
     parser.add_argument("--dry-run", action="store_true",
                         help="count and check only, do not write data/processed")
+    parser.add_argument("--preview", action="store_true",
+                        help=f"write a sheet of {PREVIEW_COUNT} sample photos per class")
     args = parser.parse_args(argv)
 
     result = build(args.data, args.classes, args.sources, args.dry_run)
     print_report(result)
     if result.rows and not args.dry_run:
         print(f"\nWrote {len(result.rows)} images to {args.data / 'processed'}")
+        if args.preview:
+            out = write_previews(args.data, result.rows, result.class_ids)
+            print(f"Wrote sample sheets to {out}: look for photos in the wrong class")
     return 1 if result.errors else 0
 
 
