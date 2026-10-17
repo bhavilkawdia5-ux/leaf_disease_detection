@@ -21,33 +21,36 @@ Check each licence on its page before use and credit the authors in the app.
 - Onion Iris yellow spot virus is in COLD but not in the draft list.
 - COLD merges Stemphylium blight and anthracnose (twister) into one class.
 
-## Counts after merging (2026-10-16)
+## Counts after merging (2026-10-17)
 
-`python ml/src/dataset.py` on the five public sets, no own photos yet: 19,959
-images (17,029 train, 2,930 val), 192 exact duplicates dropped, 2 images left
-out for appearing under two classes.
+`python ml/src/dataset.py --preview` on the six public sets, downloaded with
+`ml/src/download.py`; 70/15/15 split, train capped at 1,500 per class. 18,455
+images (12,110 train, 3,118 val, 3,227 test); 2,675 lab train photos dropped by
+the cap, 216 exact duplicates dropped, 2 images left out for appearing under two
+classes. "Test (field)" is the part of the test split that is real-world photos.
 
-| Class | Train | Val | Total | Sources |
-|---|---|---|---|---|
-| tomato__healthy | 1720 | 308 | 2028 | mendeley_tomato 380, plantdoc 63, plantvillage 1585 |
-| tomato__early_blight | 1405 | 207 | 1612 | mendeley_tomato 524, plantdoc 88, plantvillage 1000 |
-| tomato__late_blight | 1798 | 326 | 2124 | mendeley_tomato 112, plantdoc 111, plantvillage 1901 |
-| tomato__leaf_curl_virus | 4885 | 781 | 5666 | mendeley_tomato 234, plantdoc 75, plantvillage 5357 |
-| tomato__bacterial_spot | 1990 | 363 | 2353 | mendeley_tomato 117, plantdoc 109, plantvillage 2127 |
-| tomato__septoria_leaf_spot | 1621 | 299 | 1920 | plantdoc 149, plantvillage 1771 |
-| onion__healthy | 353 | 73 | 426 | cold_onion 426 |
-| onion__purple_blotch | 16 | 2 | 18 | cold_onion 18 |
-| onion__iris_yellow_spot_virus | 244 | 35 | 279 | cold_onion 279 |
-| grape__healthy | 1106 | 217 | 1323 | ngld_grape 831, plantdoc 69, plantvillage 423 |
-| grape__downy_mildew | 818 | 148 | 966 | ngld_grape 966 |
-| grape__powdery_mildew | 350 | 50 | 400 | ngld_grape 400 |
-| grape__bacterial_leaf_spot | 82 | 18 | 100 | ngld_grape 100 |
-| nutrient_deficiency | 641 | 103 | 744 | mendeley_tomato 744 |
+| Class | Train | Val | Test | Test (field) | Total | Sources |
+|---|---|---|---|---|---|---|
+| tomato__healthy | 1410 | 308 | 310 | 73 | 2028 | mendeley_tomato 380, plantdoc 63, plantvillage 1585 |
+| tomato__early_blight | 1153 | 207 | 252 | 87 | 1612 | mendeley_tomato 524, plantdoc 88, plantvillage 1000 |
+| tomato__late_blight | 1463 | 326 | 335 | 30 | 2124 | mendeley_tomato 112, plantdoc 111, plantvillage 1901 |
+| tomato__leaf_curl_virus | 1500 | 781 | 844 | 43 | 3125 | mendeley_tomato 234, plantdoc 75, plantvillage 2816 |
+| tomato__bacterial_spot | 1500 | 363 | 356 | 34 | 2219 | mendeley_tomato 117, plantdoc 109, plantvillage 1993 |
+| tomato__septoria_leaf_spot | 1327 | 299 | 294 | 21 | 1920 | plantdoc 149, plantvillage 1771 |
+| onion__healthy | 733 | 178 | 180 | 180 | 1091 | cold_onion 426, tom2024 665 |
+| onion__purple_blotch | 365 | 85 | 74 | 74 | 524 | cold_onion 18, tom2024 506 |
+| onion__iris_yellow_spot_virus | 196 | 35 | 48 | 48 | 279 | cold_onion 279 |
+| grape__healthy | 908 | 217 | 198 | 141 | 1323 | ngld_grape 831, plantdoc 69, plantvillage 423 |
+| grape__downy_mildew | 674 | 148 | 144 | 144 | 966 | ngld_grape 966 |
+| grape__powdery_mildew | 294 | 50 | 56 | 56 | 400 | ngld_grape 400 |
+| grape__bacterial_leaf_spot | 64 | 18 | 18 | 18 | 100 | ngld_grape 100 |
+| nutrient_deficiency | 523 | 103 | 118 | 118 | 744 | mendeley_tomato 744 |
 
-No images for 7 classes: onion__stemphylium_blight, onion__anthracnose_twister,
-onion__thrips_damage, grape__anthracnose, healthy_in_shadow, dust_or_water,
-not_a_leaf. Not yet balanced within 3x (5,666 vs 18), and the field test set is
-empty. `nutrient_deficiency` is tomato only so far; add onion and grape photos.
+Train is 23.4x apart (tomato leaf curl 1,500 vs grape bacterial leaf spot 64),
+so Phase 3 uses class weights (point 4 of "Workflow without field visits").
+Under 300 images: onion__iris_yellow_spot_virus (279), grape__bacterial_leaf_spot
+(100). Tomato test sets are mostly lab photos (21 to 87 field photos per class),
+so the tomato field-accuracy numbers in Phase 3 will be rough.
 
 ## Searched for the gaps (2026-10-16), not used
 
