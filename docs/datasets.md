@@ -11,6 +11,7 @@ Check each licence on its page before use and credit the authors in the app.
 | `ngld_grape/` | [Niphad Grape Leaf Disease Dataset](https://data.mendeley.com/datasets/8nnd2ypcv3) (Mendeley) | Grape: downy mildew, powdery mildew, bacterial leaf spot, healthy | Page says 2,726 images from Nashik farms, 2023–2025; the v5 public API gave 2,473 (1 unreadable). CC BY 4.0. |
 | `cold_onion/` | [COLD onion dataset](https://huggingface.co/datasets/Project-AgML/COLD_onion_leaf_disease_classification) (Hugging Face; Mendeley DOI 10.17632/7nxxn4gj5s) | Onion: purple blotch, Stemphylium/Colletotrichum blight (one class), Iris yellow spot virus, healthy | 815 raw images, only 18 of them purple blotch. Use raw, not the augmented set. CC BY 4.0. |
 | `mendeley_tomato/` | [Tomato Leaf Disease Classification v2](https://data.mendeley.com/datasets/jttrv2w27r) (Mendeley) | Tomato: early/late blight, leaf curl, bacterial spot, healthy, magnesium deficiency (→ `nutrient_deficiency`), leaf miner (skipped) | 2,995 phone photos outdoors in Bangladesh, March 2025, on a white sheet. CC BY 4.0. |
+| `tom2024/` | [TOM2024](https://data.mendeley.com/datasets/3d4yg89rtr/1) (Mendeley; [paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC11871477/)) | Onion: Alternaria (→ `onion__purple_blotch`), healthy; virosis skipped | Field photos from Burkina Faso, cropped and checked by experts. Only `CATEGORY A/CATA-English/onion_diseases` downloaded (1,397 images, small crops about 150–280 px). CC BY 4.0. |
 | — | [AgroVision GrapeLeaf](https://ieee-dataport.org/documents/agrovision-grapeleaf-pathology-dataset) (IEEE DataPort) | Grape, 7 classes incl. anthracnose | 247 images from Satara. May need institutional access; not downloaded. |
 
 ## Gaps against the draft `ml/classes.yaml` (raise in Phase 1 talks)
@@ -67,3 +68,20 @@ Put each held-out photo in `data/field_test/<class id>/<lighting>/`, where
 lighting is `good`, `shadow`, `harsh_sun` or `low_light`. Phase 3 reports
 accuracy per lighting tag, and `dataset.py` counts photos per tag and flags
 untagged ones.
+
+## Onion top-up (2026-10-17)
+
+TOM2024 added 506 purple blotch and 665 healthy onion images (23 exact
+duplicates dropped), so `onion__purple_blotch` goes from 18 to about 524.
+Its `Virosis-D` folder (203) is skipped: most photos show twisted, curled
+leaves, which could be anthracnose-twister rather than a virus. An expert
+should check it before it is mapped to any class.
+
+Still no public images for onion Stemphylium blight (alone), anthracnose
+(twister) or thrips damage. Candidates that need a login to download:
+
+- [onion_disease_detection](https://universe.roboflow.com/aditya-rias5/onion_disease_detection)
+  (Roboflow): 617 images, purple blotch and Stemphylium by stage, object
+  detection boxes (crop each box to a leaf image).
+- [Onion Leaf Disease](https://universe.roboflow.com/school-0xa1n/onion-leaf-disease-eh38e)
+  (Roboflow): 504 images, purple blotch, Stemphylium and others, CC BY 4.0.

@@ -119,6 +119,17 @@ sources:
       Magnesium Deficiency: nutrient_deficiency
       Leaf Miner Flies: skip                    # pest damage, not in classes.yaml
 
+  tom2024:
+    # TOM2024 (Mendeley 3d4yg89rtr v1): onion field photos from Burkina Faso,
+    # expert-validated crops. Only CATEGORY A/CATA-English/onion_diseases was
+    # downloaded, into raw/tom2024/onion_diseases/<folder>/.
+    map:
+      Alternaria_D: onion__purple_blotch        # Alternaria (porri) = purple blotch
+      Healthy_leaf: onion__healthy
+      # Labelled "virosis", but most photos show twisted, curled leaves, which
+      # can also be anthracnose-twister. Ask an expert before using it.
+      Virosis-D: skip
+
   own:
     # Your own photos: data/raw/own/<class id>/... (any subfolders below that).
     map: auto
