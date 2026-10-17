@@ -122,3 +122,10 @@ Still no public images for onion Stemphylium blight (alone), anthracnose
   detection boxes (crop each box to a leaf image).
 - [Onion Leaf Disease](https://universe.roboflow.com/school-0xa1n/onion-leaf-disease-eh38e)
   (Roboflow): 504 images, purple blotch, Stemphylium and others, CC BY 4.0.
+
+## Phase 3 in Colab
+
+Open `ml/notebooks/phase3_baseline.ipynb` with a T4 GPU runtime. It downloads and
+merges the data as in Phase 2, runs a quick check, trains with `ml/src/train.py`,
+tests with `ml/src/evaluate.py` and writes `ml/reports/baseline.md`, then lets you
+download the report and the model (`ml/models/` is git-ignored).
