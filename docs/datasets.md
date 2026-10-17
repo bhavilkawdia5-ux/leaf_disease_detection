@@ -84,7 +84,8 @@ data only:
    weights in training, an accepted exception to the Phase 2 "within 3x" check.
 5. **Label check by eye.** `--preview` writes one sheet of 25 sample photos per
    class to `data/processed/preview/`. This replaces the expert check until an
-   expert is available.
+   expert is available. Done 2026-10-17: all 14 sheets checked, labels look
+   right.
 6. **Lighting.** Public photos have no lighting tags, so Phase 3 measures the
    lighting drop with synthetic dark, shadow and harsh-sun versions of the
    test split, as in the Phase 0 practice run.
