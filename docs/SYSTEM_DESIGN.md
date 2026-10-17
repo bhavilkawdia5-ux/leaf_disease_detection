@@ -179,7 +179,7 @@ leaf_disease_detection/
   ml/                           Python training project
     data/                       raw, processed, field_test (never trained on)
     notebooks/
-    src/                        dataset.py, augment.py, train.py, evaluate.py, export_tflite.py
+    src/                        download.py, dataset.py, augment.py, train.py, evaluate.py, export_tflite.py
     reports/                    accuracy tables per experiment
   backend/                      Phase 8 only
 ```
