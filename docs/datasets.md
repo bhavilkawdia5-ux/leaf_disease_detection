@@ -1,7 +1,7 @@
 # Public datasets
 
-Raw downloads live in Google Drive, not Git: `MyDrive/leafsight/data/raw/<dataset>/`,
-kept zipped and untouched, with a `SOURCE.txt` (link + licence + authors).
+Raw downloads are not in Git. `python ml/src/download.py` fetches them into
+`ml/data/raw/<dataset>/` (git-ignored), untouched; the links below are the sources.
 Check each licence on its page before use and credit the authors in the app.
 
 | Folder in raw/ | Dataset | Crops / classes | Notes |
@@ -91,12 +91,12 @@ data only:
 
 `data/field_test/` still works if real field photos become available later.
 
-**Running it on the Drive data:** open `ml/notebooks/phase2_dataset.ipynb` in
-Colab. The first time, it downloads the six public sets with `ml/src/download.py`
-and saves one zip per set in `MyDrive/leafsight/data/raw/<folder>/` (about 30
-minutes; Mendeley is slow). Then it runs `dataset.py --preview`, shows the sample
-sheets, and saves `processed.zip` and `phase2_counts.txt` next to `raw/` for
-Phase 3. AgroVision GrapeLeaf needs a login, so `download.py` leaves it out.
+**Running it in Colab:** open `ml/notebooks/phase2_dataset.ipynb`. It downloads
+the six public sets with `ml/src/download.py` (about 30 minutes; Mendeley is
+slow), runs `dataset.py --preview` and shows the sample sheets. It does not use
+Google Drive (decided 2026-10-17), so each new Colab session downloads again;
+Phase 3 training does the same. AgroVision GrapeLeaf needs a login, so
+`download.py` leaves it out.
 
 ## Field test layout
 

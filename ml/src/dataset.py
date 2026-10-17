@@ -21,7 +21,7 @@ trained or tuned on. Train is capped per class, dropping lab photos first.
 
 Usage:
     python ml/src/dataset.py                    # data in ml/data
-    python ml/src/dataset.py --data /content/drive/MyDrive/leafsight/data
+    python ml/src/dataset.py --data /content/data   # in Colab, after download.py
     python ml/src/dataset.py --dry-run          # count only, write nothing
     python ml/src/dataset.py --preview          # also write sample sheets
 """
